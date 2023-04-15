@@ -1,0 +1,3 @@
+[submodule "ThirdParty/freebsd-rk3328"]
+	path = ThirdParty/freebsd-rk3328
+	url = https://github.com/dmikushin/freebsd-rk3328.git
