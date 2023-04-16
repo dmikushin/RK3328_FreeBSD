@@ -19,5 +19,9 @@ Invoke the container with your FreeBSD kernel source tree path provided in ${KER
 docker run --rm -v ${KERNSRC}:/freebsd rk3328-freebsd-builder
 ```
 
-The container will execute the build and release the resulting `kernel.bin` to `${KERNSRC}/obj`.
+The container will execute the build and release the resulting `kernel.bin` to `${KERNSRC}/obj`:
+
+```
+cp ./ThirdParty/freebsd-rk3328/obj/freebsd/arm64.aarch64/sys/RK3328/kernel.bin kernel.bin
+```
 
