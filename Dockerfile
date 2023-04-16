@@ -4,6 +4,8 @@
 FROM ubuntu:22.04 AS bootstrap_toolchain
 
 ENV DEBIAN_FRONTEND noninteractive
+ENV TARGET arm64
+ENV TARGET_ARCH aarch64
 
 RUN apt update && apt install --yes --no-install-recommends \
 	git \
@@ -11,10 +13,10 @@ RUN apt update && apt install --yes --no-install-recommends \
 	python3
 
 WORKDIR /
-RUN git clone https://github.com/dmikushin/freebsd-rk3328.git /freebsd-rk3328
+RUN git clone https://github.com/dmikushin/freebsd-rk3328.git /host-objtop
 
 RUN apt update && apt install --yes --no-install-recommends \
-        clang \
+	clang \
 	bzip2 \
 	gzip \
 	xz-utils \
@@ -23,12 +25,10 @@ RUN apt update && apt install --yes --no-install-recommends \
 	libncurses-dev \
 	libarchive-dev
 
-WORKDIR /freebsd-rk3328
-RUN MAKEOBJDIRPREFIX=/ python3 tools/build/make.py --bootstrap-toolchain kernel-toolchain TARGET=arm64 TARGET_ARCH=aarch64 -j8
+WORKDIR /host-objtop
+RUN MAKEOBJDIRPREFIX=/ python3 tools/build/make.py --bootstrap-toolchain kernel-toolchain TARGET=${TARGET} TARGET_ARCH=${TARGET_ARCH} -j8
 
-RUN mkdir /host-objtop && \
-	cp -rf /freebsd-rk3328/tmp /host-objtop/tmp && \
-	find /host-objtop/tmp -name "*.o" -delete
+RUN find /host-objtop/tmp -name "*.o" -delete
 
 # Create another slice for building and copy the bootstrapped toolchain into it
 FROM ubuntu:22.04 AS building
@@ -36,6 +36,13 @@ FROM ubuntu:22.04 AS building
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt update && apt install --yes --no-install-recommends \
+	bzip2 \
+	gzip \
+	xz-utils \
+	patch \
+	time \
+	libncurses-dev \
+	libarchive-dev \
 	vim \
 	mc
 
@@ -43,9 +50,13 @@ RUN mkdir /host-objtop
 
 COPY --from=bootstrap_toolchain /host-objtop/tmp/ /host-objtop/tmp/
 
-ENV MAKEOBJDIRPREFIX=/freebsd-rk3328/obj
+ENV PATH="/host-objtop/tmp/legacy/bin:/host-objtop/tmp/usr/bin:$PATH"
+ENV MAKEOBJDIRPREFIX=/freebsd/obj
+ENV TARGET arm64
+ENV TARGET_ARCH aarch64
+ENV KERNCONF RK3328
 
-WORKDIR /freebsd-rk3328
+WORKDIR /freebsd
 
-CMD ["make", "buildkernel", "HOST_OBJTOP=/host-objtop", "TARGET=arm64", "TARGET_ARCH=aarch64", "KERNCONF=RK3328", "NOCLEAN=YES"]
+CMD ["sh", "-c", "mkdir -p /freebsd/obj/freebsd/${TARGET}.${TARGET_ARCH} && ln -sf /host-objtop/tmp /freebsd/obj/freebsd/${TARGET}.${TARGET_ARCH}/tmp && make buildkernel TARGET=${TARGET} TARGET_ARCH=${TARGET_ARCH} KERNCONF=${KERNCONF} NOCLEAN=YES -j8"]
 
